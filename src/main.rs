@@ -1,6 +1,7 @@
 use dioxus::prelude::*;
 use serde::{Serialize, Deserialize};
-use std::time::{SystemTime};
+use chrono::prelude::*;
+// use surf;
 
 #[derive(Deserialize, Serialize, Debug)]
 pub struct Pinya {
@@ -14,7 +15,7 @@ fn main() {
 
 fn app(cx: Scope) -> Element {
     let new_pinya = use_state(&cx, || "".to_string());
-    
+    // let mut selected_pinya: &UseState<Option<Pinya>> = use_state(&cx, || None);
 
     let pinyas = use_future(&cx, (), |_| async move {
         reqwest::get("https://pinyaend.shuttleapp.rs/pinyas")
@@ -23,10 +24,56 @@ fn app(cx: Scope) -> Element {
             .json::<Vec<Pinya>>()
             .await
     });
+
+    // let get_pinya_by_id = move |id: &str| {
+    //     cx.spawn({
+    //         async move {
+    //             let response
+    //         }
+    //     })
+    // };
+
+    let create_pinya = move |_| {
+        cx.spawn({
+            let new_pinya = new_pinya.to_owned();
+
+            async move {
+                let body = Pinya {
+                    id: format!("{:?}", Utc::now().timestamp()), //id: "asdfasdfasdfasdfasdfasdf".trim().to_lowercase().to_string(), //format!("{:?}", SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs()),
+                    alias:  new_pinya.get().to_string(),
+                };
+
+                // let response = surf::post("https://pinyaend.shuttleapp.rs/pinyas")
+                //     .body_json(&body)
+                //     .await;
+
+                let response = reqwest::Client::new()
+                    .post("https://pinyaend.shuttleapp.rs/pinyas")
+                    .json(&body)
+                    .fetch_mode_no_cors()
+                    .send()
+                    .await;
+
+                match response {
+                    Ok(_data) => {
+                        println!("Pinya created!!!");
+                        new_pinya.set("".to_string());
+                    }
+                    Err(_err) => {
+                        println!("Pinya creation failed, please try again")
+                    }
+                }
+            }
+        });
+    };
+
     let pinyas_list = cx.render(
         match pinyas.value() {
             Some(Ok(val)) => rsx!(val.iter().map(|pinya| rsx!(
-                li { "{pinya.alias}" }
+                li {
+                    // onclick: move |_|  get_pinya_by_id(&pinya.id),
+                    "{pinya.alias}"
+                }
             ))),
             Some(Err(_err)) => rsx!("Something went wrong, no pinyas here :("),
             None => rsx!("Fetching all pinyas"),
@@ -36,45 +83,43 @@ fn app(cx: Scope) -> Element {
     cx.render(rsx! {
         main {
             style { include_str!("./styles.css") }
-            header {
-                h1 {
-                    "Piny4man viewers"
-                }
-                section {
-                    class: "create--container",
-                    input {
-                        placeholder: "User alias",
-                        oninput: move |evt| new_pinya.set(evt.value.clone())
+            article {
+                header {
+                    h1 {
+                        "Piny4man viewers"
                     }
-                    button {
-                        // onclick: move |_| cx.spawn({
-                        //     let mut pinya = new_pinya.clone();
-                        //     async move {
-                        //         let body = Pinya {
-                        //             id: format!("{:?}", SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs()),
-                        //             alias: pinya.clone().to_string(),
-                        //         };
+                    section {
+                        class: "create--container",
+                        input {
+                            placeholder: "User alias",
+                            oninput: move |evt| new_pinya.set(evt.value.clone())
+                        }
+                        button {
+                            onclick: create_pinya,
+                            "Create"
+                        }
+                        button {
+                            // hidden: true,
+                            onclick: move |_| pinyas.restart(),
+                            "Refresh list"
+                        }
+                    }
 
-                        //         let client = reqwest::Client::new();
-                        //         client.post("https://pinyaend.shuttleapp.rs/pinyas")
-                        //             .json(&body)
-                        //             .send()
-                        //             .await;
-                        //         pinya.set("".to_string());
-                        //     }
-                        // }),
-                        onclick: move |_| new_pinya.set("".to_string()),
-                        "Create"
-                    }
-                    button {
-                        onclick: move |_| pinyas.restart(),
-                        "Refresh list"
+                    ul {
+                        class: "pinyas--list",
+                        pinyas_list
                     }
                 }
+            }
 
-                ul {
-                    class: "pinyas--list",
-                    pinyas_list
+            article {
+                header {
+                    h1 {
+                        "Selected pinya"
+                    }
+                    div {
+
+                    }
                 }
             }
         }
