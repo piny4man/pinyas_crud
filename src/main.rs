@@ -1,6 +1,7 @@
 use dioxus::prelude::*;
 use serde::{Serialize, Deserialize};
 use chrono::prelude::*;
+use reqwest;
 // use surf;
 
 #[derive(Deserialize, Serialize, Debug)]
@@ -13,11 +14,30 @@ fn main() {
     dioxus_web::launch(app);
 }
 
+#[inline_props]
+fn PinyaItem<'a>(cx: Scope<'a>, name: &'a str) -> Element {
+    cx.render(rsx! {
+        li { "{name}" }
+    })
+}
+
+#[inline_props]
+fn Button<'b>(cx: Scope<'b>, label: &'b str, class: &'b str, onclick: EventHandler<'b, MouseEvent>) -> Element {
+    cx.render(rsx! {
+        button {
+            class: "{class}",
+            onclick: move |event| onclick.call(event),
+            // onclick: move |event| on_click.call(event),
+            "{label}"
+        }
+    })
+}
+
 fn app(cx: Scope) -> Element {
     let new_pinya = use_state(&cx, || "".to_string());
     // let mut selected_pinya: &UseState<Option<Pinya>> = use_state(&cx, || None);
 
-    let pinyas = use_future(&cx, (), |_| async move {
+    let get_pinyas = use_future(&cx, (), |_| async move {
         reqwest::get("https://pinyaend.shuttleapp.rs/pinyas")
             .await
             .unwrap()
@@ -25,39 +45,26 @@ fn app(cx: Scope) -> Element {
             .await
     });
 
-    // let get_pinya_by_id = move |id: &str| {
-    //     cx.spawn({
-    //         async move {
-    //             let response
-    //         }
-    //     })
-    // };
-
     let create_pinya = move |_| {
         cx.spawn({
             let new_pinya = new_pinya.to_owned();
 
             async move {
                 let body = Pinya {
-                    id: format!("{:?}", Utc::now().timestamp()), //id: "asdfasdfasdfasdfasdfasdf".trim().to_lowercase().to_string(), //format!("{:?}", SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs()),
+                    id: format!("{:?}", Utc::now().timestamp()),
                     alias:  new_pinya.get().to_string(),
                 };
-
-                // let response = surf::post("https://pinyaend.shuttleapp.rs/pinyas")
-                //     .body_json(&body)
-                //     .await;
 
                 let response = reqwest::Client::new()
                     .post("https://pinyaend.shuttleapp.rs/pinyas")
                     .json(&body)
-                    .fetch_mode_no_cors()
                     .send()
                     .await;
 
                 match response {
                     Ok(_data) => {
                         println!("Pinya created!!!");
-                        new_pinya.set("".to_string());
+                        new_pinya.set("".to_string())
                     }
                     Err(_err) => {
                         println!("Pinya creation failed, please try again")
@@ -68,11 +75,12 @@ fn app(cx: Scope) -> Element {
     };
 
     let pinyas_list = cx.render(
-        match pinyas.value() {
+        match get_pinyas.value() {
             Some(Ok(val)) => rsx!(val.iter().map(|pinya| rsx!(
-                li {
+                PinyaItem {
+                    key: "{pinya.id}",
                     // onclick: move |_|  get_pinya_by_id(&pinya.id),
-                    "{pinya.alias}"
+                    name: "{pinya.alias}"
                 }
             ))),
             Some(Err(_err)) => rsx!("Something went wrong, no pinyas here :("),
@@ -84,24 +92,25 @@ fn app(cx: Scope) -> Element {
         main {
             style { include_str!("./styles.css") }
             article {
+                class: "create--container",
                 header {
                     h1 {
                         "Piny4man viewers"
                     }
                     section {
-                        class: "create--container",
                         input {
                             placeholder: "User alias",
                             oninput: move |evt| new_pinya.set(evt.value.clone())
                         }
-                        button {
+                        Button {
+                            label: "Create comp",
                             onclick: create_pinya,
-                            "Create"
+                            class: if new_pinya.get().is_empty() { "disabled" } else { "" }
                         }
-                        button {
-                            // hidden: true,
-                            onclick: move |_| pinyas.restart(),
-                            "Refresh list"
+                        Button {
+                            label: "Refresh List",
+                            onclick: move |_| get_pinyas.restart(),
+                            class: ""
                         }
                     }
 
@@ -112,16 +121,17 @@ fn app(cx: Scope) -> Element {
                 }
             }
 
-            article {
-                header {
-                    h1 {
-                        "Selected pinya"
-                    }
-                    div {
+            // article {
+            //     header {
+            //         h1 {
+            //             "Selected pinya"
+            //         }
+            //         div {
 
-                    }
-                }
-            }
+            //         }
+            //     }
+            // }
         }
     })
 }
+//https://www.youtube.com/watch?v=BH-SnQ8J1VU&list=PLfP6i5T0-DkIMLNRwmJpRBs4PJvxfgwBg

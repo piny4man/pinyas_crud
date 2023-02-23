@@ -1,23 +1,33 @@
 body {
   min-width: 100vw;
-  min-height: 100vh;
+  min-height: calc(100vh - 40px);
   background-color: #022B3A;
   color: #E1E5F2;
   box-sizing: border-box;
   margin: 0;
-  padding: 10px;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
+  padding: 20px;
   font-family: sans-serif;
 }
 
+main {
+  min-width: 100%;
+  min-height: calc(100vh - 40px);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: flex-start;
+}
+
 main .create--container {
+  flex: 1;
   display: flex;
   flex-direction: row;
   justify-content: flex-start;
-  align-items: center;
+  align-items: flex-start;
+}
+
+main .create--container header h1 {
+  margin: 0 0 12px;
 }
 
 main .create--container input {
@@ -51,7 +61,18 @@ main .create--container button {
 }
 
 main .create--container button:hover {
-  background-color: #a37a00;
+  background-color: #CC9900;
+}
+
+main .create--container button:active {
+  background-color: #A37A00;
+}
+
+main .create--container button.disabled,
+main .create--container button:disabled {
+  background-color: grey;
+  user-select: none;
+  pointer-events: none;
 }
 
 main .pinyas--list {
